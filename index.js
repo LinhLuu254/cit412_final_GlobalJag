@@ -3,6 +3,9 @@ const path =require('path');
 const fs = require('fs-extra');
 const os = require('os');
 const sharp = require('sharp');
+const getExif = require('exif-async');
+const parseDMS = require('parse-dms');
+const {Firestore} = require('@google-cloud/firestore');
 
 exports.generateThumbData = async (file, context) => {
 
@@ -67,6 +70,13 @@ const generateThumbnails = async (file, context) => {
         destination: tempFilePath
     });
 
+    //Exif right-here
+
+    // const gpsData = 
+    const gpsDecimal = await extractExif(tempFilePath);
+
+    // const degCoords = getGPSCoordinates(gpsData);
+
     // Upload our local version of the file to the final images bucket
     await finalBucket.upload(tempFilePath);
 
@@ -88,9 +98,74 @@ const generateThumbnails = async (file, context) => {
 
     // Delete the temp working directory and its files from the GCF's VM
     await fs.remove(workingDir);
+
+    //Photo Objects
+      const photoData = {
+        imageName: `${finalFileName}`,
+        imageUrl: `gs://sp24-cit412-lluu-gj-final/${finalFileName}`,
+        lat:gpsDecimal.lat,
+        lon:gpsDecimal.lon,
+        thumbURL: `gs://sp24-cit412-lluu-gj-thumbnails/${thumbName}`
+
+    };
+    await writeToFS(photoData);
     } 
 
     // DELETE the original file uploaded to the "Uploads" bucket
     await sourceBucket.file(gcsFile.name).delete();
     console.log(`Deleted uploaded file: ${gcsFile.name}`)
 };
+
+async function extractExif(tempfile) {
+  let gpsObject = await readExifData(tempfile);
+  console.log(gpsObject);
+  let gpsDecimal = getGPSCoordinates(gpsObject);
+  console.log(gpsDecimal);
+
+  return gpsDecimal;
+}
+
+
+//Helper Function
+async function readExifData(loadFile) {
+  let exifData;
+  try {
+      exifData = await getExif(loadFile);
+      // console.log(exifData);
+      console.log(exifData);
+      console.log(exifData.gps.GPSLatitude);
+      return exifData.gps
+  }catch(err){
+      console.log(err);
+      return null;
+  }
+}
+
+function getGPSCoordinates (g){
+  //PARSE DMS needs string in the format of:
+  //51:30:0.5486N 0:7:34.4503W
+  //DEG:MIN:SECDIRECTION DEG:MIN:SECDIRECTION 
+  const latString = `${g.GPSLatitude[0]}:${g.GPSLatitude[1]}:${g.GPSLatitude[2]}${g.GPSLatitudeRef}`;
+  const longString = `${g.GPSLongitude[0]}:${g.GPSLongitude[1]}:${g.GPSLongitude[2]}${g.GPSLongitudeRef}`;
+
+  const degCoords = parseDMS(`${latString} ${longString}`);
+
+
+return degCoords
+}
+
+async function writeToFS(dataObject) {
+  const firestore = new Firestore ({
+      projectId: "sp24-cit412-lluu-globaljags"
+  });
+
+  console.log(dataObject)
+
+
+  //
+  let collectionRef = firestore.collection('photo');
+  let documentRef = await collectionRef.add(dataObject);
+
+  console.log(`Document created: ${documentRef.id}`)
+
+}
