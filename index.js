@@ -102,10 +102,10 @@ const generateThumbnails = async (file, context) => {
     //Photo Objects
       const photoData = {
         imageName: `${finalFileName}`,
-        imageUrl: `gs://sp24-cit412-lluu-gj-final/${finalFileName}`,
+        imageUrl: thumbnailsBucket.file(finalFileName).publicUrl(),
         lat:gpsDecimal.lat,
         lon:gpsDecimal.lon,
-        thumbURL: `gs://sp24-cit412-lluu-gj-thumbnails/${thumbName}`
+        thumbURL: finalBucket.file(thumbName).publicUrl()
 
     };
     await writeToFS(photoData);
@@ -166,6 +166,6 @@ async function writeToFS(dataObject) {
   let collectionRef = firestore.collection('photo');
   let documentRef = await collectionRef.add(dataObject);
 
-  console.log(`Document created: ${documentRef.id}`)
+  console.log(`Document created: ${documentRef.id}`);
 
 }
