@@ -71,11 +71,7 @@ const generateThumbnails = async (file, context) => {
     });
 
     //Exif right-here
-
-    // const gpsData = 
     const gpsDecimal = await extractExif(tempFilePath);
-
-    // const degCoords = getGPSCoordinates(gpsData);
 
     // Upload our local version of the file to the final images bucket
     await finalBucket.upload(tempFilePath);
@@ -102,11 +98,11 @@ const generateThumbnails = async (file, context) => {
     //Photo Objects
       const photoData = {
         imageName: `${finalFileName}`,
-        imageUrl: thumbnailsBucket.file(finalFileName).publicUrl(),
+        imageUrl: finalBucket.file(finalFileName).publicUrl(),
+        thumbURL: thumbnailsBucket.file(thumbName).publicUrl(),
         lat:gpsDecimal.lat,
         lon:gpsDecimal.lon,
-        thumbURL: finalBucket.file(thumbName).publicUrl()
-
+       
     };
     await writeToFS(photoData);
     } 
@@ -160,8 +156,6 @@ async function writeToFS(dataObject) {
   });
 
   console.log(dataObject)
-
-
   //
   let collectionRef = firestore.collection('photo');
   let documentRef = await collectionRef.add(dataObject);
